@@ -101,9 +101,9 @@ public class S3StorageConfig extends AbstractConfig {
         CONFIG = new ConfigDef()
             .define(
                 S3_BUCKET_NAME_CONFIG,
-                ConfigDef.Type.STRING,
+                ConfigDef.Type.PASSWORD,
                 ConfigDef.NO_DEFAULT_VALUE,
-                new ConfigDef.NonEmptyString(),
+                new NonEmptyPassword(),
                 ConfigDef.Importance.HIGH,
                 S3_BUCKET_NAME_DOC)
             .define(
@@ -286,7 +286,7 @@ public class S3StorageConfig extends AbstractConfig {
     }
 
     public String bucketName() {
-        return getString(S3_BUCKET_NAME_CONFIG);
+        return getPassword(S3_BUCKET_NAME_CONFIG).value();
     }
 
     public Boolean pathStyleAccessEnabled() {

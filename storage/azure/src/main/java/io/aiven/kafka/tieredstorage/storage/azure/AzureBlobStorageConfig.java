@@ -25,7 +25,6 @@ import org.apache.kafka.common.config.types.Password;
 
 import io.aiven.kafka.tieredstorage.config.validators.NonEmptyPassword;
 import io.aiven.kafka.tieredstorage.config.validators.Null;
-import io.aiven.kafka.tieredstorage.config.validators.ValidUrl;
 
 public class AzureBlobStorageConfig extends AbstractConfig {
     static final String AZURE_ACCOUNT_NAME_CONFIG = "azure.account.name";
@@ -59,9 +58,9 @@ public class AzureBlobStorageConfig extends AbstractConfig {
         CONFIG = new ConfigDef()
             .define(
                 AZURE_ACCOUNT_NAME_CONFIG,
-                ConfigDef.Type.STRING,
+                ConfigDef.Type.PASSWORD,
                 null,
-                Null.or(new ConfigDef.NonEmptyString()),
+                Null.or(new NonEmptyPassword()),
                 ConfigDef.Importance.HIGH,
                 AZURE_ACCOUNT_NAME_DOC)
             .define(
@@ -80,16 +79,16 @@ public class AzureBlobStorageConfig extends AbstractConfig {
                 AZURE_SAS_TOKEN_DOC)
             .define(
                 AZURE_CONTAINER_NAME_CONFIG,
-                ConfigDef.Type.STRING,
+                ConfigDef.Type.PASSWORD,
                 ConfigDef.NO_DEFAULT_VALUE,
-                new ConfigDef.NonEmptyString(),
+                new NonEmptyPassword(),
                 ConfigDef.Importance.HIGH,
                 AZURE_CONTAINER_NAME_DOC)
             .define(
                 AZURE_ENDPOINT_URL_CONFIG,
-                ConfigDef.Type.STRING,
+                ConfigDef.Type.PASSWORD,
                 null,
-                Null.or(new ValidUrl()),
+                Null.or(new NonEmptyPassword()),
                 ConfigDef.Importance.LOW,
                 AZURE_ENDPOINT_URL_DOC)
             .define(
@@ -141,12 +140,11 @@ public class AzureBlobStorageConfig extends AbstractConfig {
     }
 
     String accountName() {
-        return getString(AZURE_ACCOUNT_NAME_CONFIG);
+        return getPasswordValue(AZURE_ACCOUNT_NAME_CONFIG);
     }
 
     String accountKey() {
-        final Password key = getPassword(AZURE_ACCOUNT_KEY_CONFIG);
-        return key == null ? null : key.value();
+        return getPasswordValue(AZURE_ACCOUNT_KEY_CONFIG);
     }
 
     String sasToken() {
@@ -155,16 +153,20 @@ public class AzureBlobStorageConfig extends AbstractConfig {
     }
 
     String containerName() {
-        return getString(AZURE_CONTAINER_NAME_CONFIG);
+        return getPasswordValue(AZURE_CONTAINER_NAME_CONFIG);
     }
 
     String endpointUrl() {
-        return getString(AZURE_ENDPOINT_URL_CONFIG);
+        return getPasswordValue(AZURE_ENDPOINT_URL_CONFIG);
     }
 
     String connectionString() {
-        final Password connectionString = getPassword(AZURE_CONNECTION_STRING_CONFIG);
-        return connectionString == null ? null : connectionString.value();
+        return getPasswordValue(AZURE_CONNECTION_STRING_CONFIG);
+    }
+
+    private String getPasswordValue(final String configName) {
+        final Password key = getPassword(configName);
+        return key == null ? null : key.value();
     }
 
     int uploadBlockSize() {

@@ -111,7 +111,7 @@ public class RemoteStorageManagerConfig extends AbstractConfig {
 
         CONFIG.define(
             OBJECT_KEY_PREFIX_CONFIG,
-            ConfigDef.Type.STRING,
+            ConfigDef.Type.PASSWORD,
             "",
             new ConfigDef.NonNullValidator(),
             ConfigDef.Importance.HIGH,
@@ -343,7 +343,7 @@ public class RemoteStorageManagerConfig extends AbstractConfig {
     }
 
     public String keyPrefix() {
-        return getString(OBJECT_KEY_PREFIX_CONFIG);
+        return getPassword(OBJECT_KEY_PREFIX_CONFIG).value();
     }
 
     public boolean keyPrefixMask() {
