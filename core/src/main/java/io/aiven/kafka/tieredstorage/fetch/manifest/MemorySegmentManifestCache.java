@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.aiven.kafka.tieredstorage.manifest;
+package io.aiven.kafka.tieredstorage.fetch.manifest;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,6 +25,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.aiven.kafka.tieredstorage.manifest.SegmentManifest;
 import io.aiven.kafka.tieredstorage.metrics.CaffeineStatsCounter;
 import io.aiven.kafka.tieredstorage.storage.ObjectFetcher;
 import io.aiven.kafka.tieredstorage.storage.ObjectKey;
@@ -34,7 +35,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
-public class SegmentManifestProvider {
+public class MemorySegmentManifestCache implements SegmentManifestCache {
     private static final String SEGMENT_MANIFEST_METRIC_GROUP_NAME = "segment-manifest-cache-metrics";
     private static final long GET_TIMEOUT_SEC = 10;
 
@@ -44,11 +45,11 @@ public class SegmentManifestProvider {
      * @param maxCacheSize   the max cache size (in items) or empty if the cache is unbounded.
      * @param cacheRetention the retention time of items in the cache or empty if infinite retention.
      */
-    public SegmentManifestProvider(final Optional<Long> maxCacheSize,
-                                   final Optional<Duration> cacheRetention,
-                                   final ObjectFetcher fileFetcher,
-                                   final ObjectMapper mapper,
-                                   final Executor executor) {
+    public MemorySegmentManifestCache(final Optional<Long> maxCacheSize,
+                                      final Optional<Duration> cacheRetention,
+                                      final ObjectFetcher fileFetcher,
+                                      final ObjectMapper mapper,
+                                      final Executor executor) {
         final var statsCounter = new CaffeineStatsCounter(SEGMENT_MANIFEST_METRIC_GROUP_NAME);
         final var cacheBuilder = Caffeine.newBuilder()
             .recordStats(() -> statsCounter)
@@ -63,8 +64,8 @@ public class SegmentManifestProvider {
         statsCounter.registerSizeMetric(cache.synchronous()::estimatedSize);
     }
 
-    public SegmentManifest get(final ObjectKey manifestKey)
-        throws StorageBackendException, IOException {
+    @Override
+    public SegmentManifest get(final ObjectKey manifestKey) throws StorageBackendException, IOException {
         try {
             return cache.get(manifestKey).get(GET_TIMEOUT_SEC, TimeUnit.SECONDS);
         } catch (final ExecutionException e) {

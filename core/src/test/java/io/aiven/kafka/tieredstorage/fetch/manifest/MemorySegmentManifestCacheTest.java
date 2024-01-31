@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.aiven.kafka.tieredstorage.manifest;
+package io.aiven.kafka.tieredstorage.fetch.manifest;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -50,7 +50,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class SegmentManifestProviderTest {
+class MemorySegmentManifestCacheTest {
     static final ObjectMapper MAPPER = new ObjectMapper();
     public static final ObjectKey MANIFEST_KEY = () -> "topic/manifest";
 
@@ -83,11 +83,11 @@ class SegmentManifestProviderTest {
     @Mock
     StorageBackend storage;
 
-    SegmentManifestProvider provider;
+    MemorySegmentManifestCache provider;
 
     @BeforeEach
     void setup() {
-        provider = new SegmentManifestProvider(
+        provider = new MemorySegmentManifestCache(
             Optional.of(1000L), Optional.empty(), storage, MAPPER,
             ForkJoinPool.commonPool());
     }
@@ -95,7 +95,7 @@ class SegmentManifestProviderTest {
     @Test
     void unboundedShouldBeCreated() {
         assertThatNoException()
-            .isThrownBy(() -> new SegmentManifestProvider(
+            .isThrownBy(() -> new MemorySegmentManifestCache(
                 Optional.empty(), Optional.of(Duration.ofMillis(1)), storage, MAPPER,
                 ForkJoinPool.commonPool()));
     }
@@ -103,7 +103,7 @@ class SegmentManifestProviderTest {
     @Test
     void withoutRetentionLimitsShouldBeCreated() {
         assertThatNoException()
-            .isThrownBy(() -> new SegmentManifestProvider(
+            .isThrownBy(() -> new MemorySegmentManifestCache(
                 Optional.of(1L), Optional.empty(), storage, MAPPER,
                 ForkJoinPool.commonPool()));
     }
