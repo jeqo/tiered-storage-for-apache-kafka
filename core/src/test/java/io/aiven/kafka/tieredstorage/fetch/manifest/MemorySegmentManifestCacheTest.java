@@ -20,11 +20,13 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
-import java.util.Optional;
+import java.util.Map;
 import java.util.concurrent.ForkJoinPool;
 
 import org.apache.kafka.server.log.remote.storage.RemoteStorageManager.IndexType;
 
+import io.aiven.kafka.tieredstorage.manifest.SegmentIndexesV1;
+import io.aiven.kafka.tieredstorage.manifest.SegmentManifestV1;
 import io.aiven.kafka.tieredstorage.manifest.index.FixedSizeChunkIndex;
 import io.aiven.kafka.tieredstorage.manifest.serde.KafkaTypeSerdeModule;
 import io.aiven.kafka.tieredstorage.storage.ObjectKey;
@@ -87,24 +89,33 @@ class MemorySegmentManifestCacheTest {
 
     @BeforeEach
     void setup() {
+        final var config = MemorySegmentManifestCache.CONFIG_BUILDER.build(Map.of(
+            "size", 1000L
+        ));
         provider = new MemorySegmentManifestCache(
-            Optional.of(1000L), Optional.empty(), storage, MAPPER,
+            config, storage, MAPPER,
             ForkJoinPool.commonPool());
     }
 
     @Test
     void unboundedShouldBeCreated() {
+        final var config = MemorySegmentManifestCache.CONFIG_BUILDER.build(Map.of(
+            "retention", 1L
+        ));
         assertThatNoException()
             .isThrownBy(() -> new MemorySegmentManifestCache(
-                Optional.empty(), Optional.of(Duration.ofMillis(1)), storage, MAPPER,
+                config, storage, MAPPER,
                 ForkJoinPool.commonPool()));
     }
 
     @Test
     void withoutRetentionLimitsShouldBeCreated() {
+        final var config = MemorySegmentManifestCache.CONFIG_BUILDER.build(Map.of(
+            "size", 1L
+        ));
         assertThatNoException()
             .isThrownBy(() -> new MemorySegmentManifestCache(
-                Optional.of(1L), Optional.empty(), storage, MAPPER,
+                config, storage, MAPPER,
                 ForkJoinPool.commonPool()));
     }
 

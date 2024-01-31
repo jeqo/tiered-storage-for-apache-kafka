@@ -19,12 +19,12 @@ package io.aiven.kafka.tieredstorage.fetch.manifest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.aiven.kafka.tieredstorage.config.CacheConfig;
 import io.aiven.kafka.tieredstorage.manifest.SegmentManifest;
 import io.aiven.kafka.tieredstorage.metrics.CaffeineStatsCounter;
 import io.aiven.kafka.tieredstorage.storage.ObjectFetcher;
@@ -36,17 +36,16 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
 public class MemorySegmentManifestCache implements SegmentManifestCache {
+    public static final CacheConfig.Builder CONFIG_BUILDER = CacheConfig.newBuilder()
+        .withDefaultRetention(Duration.ofHours(1).toMillis())
+        .withDefaultSize(1000L);
+
     private static final String SEGMENT_MANIFEST_METRIC_GROUP_NAME = "segment-manifest-cache-metrics";
     private static final long GET_TIMEOUT_SEC = 10;
 
     private final AsyncLoadingCache<ObjectKey, SegmentManifest> cache;
 
-    /**
-     * @param maxCacheSize   the max cache size (in items) or empty if the cache is unbounded.
-     * @param cacheRetention the retention time of items in the cache or empty if infinite retention.
-     */
-    public MemorySegmentManifestCache(final Optional<Long> maxCacheSize,
-                                      final Optional<Duration> cacheRetention,
+    public MemorySegmentManifestCache(final CacheConfig cacheConfig,
                                       final ObjectFetcher fileFetcher,
                                       final ObjectMapper mapper,
                                       final Executor executor) {
@@ -54,8 +53,8 @@ public class MemorySegmentManifestCache implements SegmentManifestCache {
         final var cacheBuilder = Caffeine.newBuilder()
             .recordStats(() -> statsCounter)
             .executor(executor);
-        maxCacheSize.ifPresent(cacheBuilder::maximumSize);
-        cacheRetention.ifPresent(cacheBuilder::expireAfterWrite);
+        cacheConfig.cacheSize().ifPresent(cacheBuilder::maximumSize);
+        cacheConfig.cacheRetention().ifPresent(cacheBuilder::expireAfterWrite);
         this.cache = cacheBuilder.buildAsync(key -> {
             try (final InputStream is = fileFetcher.fetch(key)) {
                 return mapper.readValue(is, SegmentManifest.class);
