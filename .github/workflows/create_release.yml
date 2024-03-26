@@ -44,8 +44,8 @@ jobs:
           ./gradlew distTar distZip
 
           # Core libs
-          export core_tar_file=$(ls ./build/distributions/ | grep tgz)
-          export core_zip_file=$(ls ./build/distributions/ | grep zip)
+          export core_tar_file=$(ls ./core/build/distributions/ | grep tgz)
+          export core_zip_file=$(ls ./core/build/distributions/ | grep zip)
           echo core_tar_file=${core_tar_file} >> $GITHUB_ENV
           echo core_zip_file=${core_zip_file} >> $GITHUB_ENV
           # S3 libs
@@ -64,8 +64,8 @@ jobs:
           echo azure_tar_file=${azure_tar_file} >> $GITHUB_ENV
           echo azure_zip_file=${azure_zip_file} >> $GITHUB_ENV
 
-          echo core_tar_path=`realpath ./build/distributions/${core_tar_file}` >> $GITHUB_ENV
-          echo core_zip_path=`realpath ./build/distributions/${core_zip_file}` >> $GITHUB_ENV
+          echo core_tar_path=`realpath ./core/build/distributions/${core_tar_file}` >> $GITHUB_ENV
+          echo core_zip_path=`realpath ./core/build/distributions/${core_zip_file}` >> $GITHUB_ENV
           echo s3_tar_path=`realpath ./storage/s3/build/distributions/${s3_tar_file}` >> $GITHUB_ENV
           echo s3_zip_path=`realpath ./storage/s3/build/distributions/${s3_zip_file}` >> $GITHUB_ENV
           echo gcs_tar_path=`realpath ./storage/gcs/build/distributions/${gcs_tar_file}` >> $GITHUB_ENV
