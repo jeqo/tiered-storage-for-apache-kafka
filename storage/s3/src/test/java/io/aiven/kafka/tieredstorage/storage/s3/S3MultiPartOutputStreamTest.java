@@ -17,6 +17,7 @@
 package io.aiven.kafka.tieredstorage.storage.s3;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -197,14 +198,23 @@ class S3MultiPartOutputStreamTest {
     @Test
     void writesMultipleMessages() throws Exception {
         final int bufferSize = 10;
-        final byte[] message = new byte[bufferSize];
 
+        final List<UploadPartRequest> uploadPartRequests = new ArrayList<>();
+        final List<RequestBody> requestBodies = new ArrayList<>();
         when(mockedS3.createMultipartUpload(any(CreateMultipartUploadRequest.class)))
             .thenReturn(newInitiateMultipartUploadResult());
         when(mockedS3.uploadPart(any(UploadPartRequest.class), any(RequestBody.class)))
             .thenAnswer(invocation -> {
-                final UploadPartRequest up = invocation.getArgument(0);
-                return newUploadPartResponse("SOME_ETAG#" + up.partNumber());
+                final UploadPartRequest upload = invocation.getArgument(0);
+                final RequestBody originalBody = invocation.getArgument(1);
+                //emulate the behavior of S3 client otherwise we will get a wrong array in the memory
+                try (final InputStream inputStream = originalBody.contentStreamProvider().newStream()) {
+                    final RequestBody requestBody = RequestBody.fromBytes(inputStream.readAllBytes());
+                    requestBodies.add(requestBody);
+                }
+                uploadPartRequests.add(upload);
+
+                return newUploadPartResponse("SOME_ETAG#" + upload.partNumber());
             });
         when(mockedS3.completeMultipartUpload(any(CompleteMultipartUploadRequest.class)))
             .thenReturn(CompleteMultipartUploadResponse.builder().build());
@@ -213,6 +223,7 @@ class S3MultiPartOutputStreamTest {
         final var mpu = new S3Storage.S3MultiPartUpload(mockedS3, BUCKET_NAME, FILE_KEY.value());
         final var out = new S3MultiPartOutputStream(mpu, bufferSize);
         for (int i = 0; i < 3; i++) {
+            final byte[] message = new byte[bufferSize];
             random.nextBytes(message);
             out.write(message, 0, message.length);
             expectedMessagesList.add(message);
@@ -223,15 +234,14 @@ class S3MultiPartOutputStreamTest {
         assertThatCode(out::close).doesNotThrowAnyException();
 
         verify(mockedS3).createMultipartUpload(any(CreateMultipartUploadRequest.class));
-        verify(mockedS3, times(3)).uploadPart(uploadPartRequestCaptor.capture(), requestBodyCaptor.capture());
+        verify(mockedS3, times(3)).uploadPart(any(UploadPartRequest.class), any(RequestBody.class));
         verify(mockedS3).completeMultipartUpload(completeMultipartUploadRequestCaptor.capture());
 
-        final List<UploadPartRequest> uploadRequests = uploadPartRequestCaptor.getAllValues();
         int counter = 0;
         for (final byte[] expectedMessage : expectedMessagesList) {
             assertUploadPartRequest(
-                uploadRequests.get(counter),
-                requestBodyCaptor.getValue(),
+                uploadPartRequests.get(counter),
+                requestBodies.get(counter),
                 bufferSize,
                 counter + 1,
                 expectedMessage);
@@ -261,10 +271,11 @@ class S3MultiPartOutputStreamTest {
                 final UploadPartRequest upload = invocation.getArgument(0);
                 final RequestBody originalBody = invocation.getArgument(1);
                 //emulate the behavior of S3 client otherwise we will get a wrong array in the memory
-                final RequestBody requestBody = RequestBody.fromBytes(originalBody.contentStreamProvider().newStream()
-                    .readAllBytes());
+                try (final InputStream inputStream = originalBody.contentStreamProvider().newStream()) {
+                    final RequestBody requestBody = RequestBody.fromBytes(inputStream.readAllBytes());
+                    requestBodies.add(requestBody);
+                }
                 uploadPartRequests.add(upload);
-                requestBodies.add(requestBody);
 
                 return newUploadPartResponse("SOME_ETAG#" + upload.partNumber());
             });
