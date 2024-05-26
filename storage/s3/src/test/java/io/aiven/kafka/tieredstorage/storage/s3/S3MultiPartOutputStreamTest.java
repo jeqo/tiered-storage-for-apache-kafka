@@ -49,6 +49,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -73,17 +74,18 @@ class S3MultiPartOutputStreamTest {
 
     @BeforeEach
     void setUp() {
-        when(mockedS3.createMultipartUpload(any(CreateMultipartUploadRequest.class)))
-            .thenReturn(newInitiateMultipartUploadResult());
     }
 
     @Test
     void sendAbortForAnyExceptionWhileWriting() {
         final RuntimeException testException = new RuntimeException("test");
+        when(mockedS3.createMultipartUpload(any(CreateMultipartUploadRequest.class)))
+            .thenReturn(newInitiateMultipartUploadResult());
         when(mockedS3.uploadPart(any(UploadPartRequest.class), any(RequestBody.class)))
             .thenThrow(testException);
 
-        final var out = new S3MultiPartOutputStream(BUCKET_NAME, FILE_KEY, 1, mockedS3);
+        final var mpu = new S3Storage.S3MultiPartUpload(mockedS3, BUCKET_NAME, FILE_KEY.value());
+        final var out = new S3MultiPartOutputStream(mpu, 1);
         assertThatThrownBy(() -> out.write(new byte[] {1, 2, 3}))
             .isInstanceOf(IOException.class)
             .hasRootCause(testException);
@@ -102,10 +104,13 @@ class S3MultiPartOutputStreamTest {
 
     @Test
     void sendAbortForAnyExceptionWhenClosingUpload() throws Exception {
+        when(mockedS3.createMultipartUpload(any(CreateMultipartUploadRequest.class)))
+            .thenReturn(newInitiateMultipartUploadResult());
         when(mockedS3.uploadPart(any(UploadPartRequest.class), any(RequestBody.class)))
             .thenThrow(RuntimeException.class);
 
-        final var out = new S3MultiPartOutputStream(BUCKET_NAME, FILE_KEY, 10, mockedS3);
+        final var mpu = new S3Storage.S3MultiPartUpload(mockedS3, BUCKET_NAME, FILE_KEY.value());
+        final var out = new S3MultiPartOutputStream(mpu, 10);
 
         final byte[] buffer = new byte[5];
         random.nextBytes(buffer);
@@ -127,12 +132,15 @@ class S3MultiPartOutputStreamTest {
 
     @Test
     void sendAbortForAnyExceptionWhenClosingComplete() throws Exception {
+        when(mockedS3.createMultipartUpload(any(CreateMultipartUploadRequest.class)))
+            .thenReturn(newInitiateMultipartUploadResult());
         when(mockedS3.uploadPart(any(UploadPartRequest.class), any(RequestBody.class)))
             .thenReturn(newUploadPartResponse("SOME_ETAG#1"));
         when(mockedS3.completeMultipartUpload(any(CompleteMultipartUploadRequest.class)))
             .thenThrow(RuntimeException.class);
 
-        final var out = new S3MultiPartOutputStream(BUCKET_NAME, FILE_KEY, 10, mockedS3);
+        final var mpu = new S3Storage.S3MultiPartUpload(mockedS3, BUCKET_NAME, FILE_KEY.value());
+        final var out = new S3MultiPartOutputStream(mpu, 10);
 
         final byte[] buffer = new byte[5];
         random.nextBytes(buffer);
@@ -154,12 +162,15 @@ class S3MultiPartOutputStreamTest {
 
     @Test
     void writesOneByte() throws Exception {
+        when(mockedS3.createMultipartUpload(any(CreateMultipartUploadRequest.class)))
+            .thenReturn(newInitiateMultipartUploadResult());
         when(mockedS3.uploadPart(any(UploadPartRequest.class), any(RequestBody.class)))
             .thenReturn(newUploadPartResponse("SOME_ETAG"));
         when(mockedS3.completeMultipartUpload(any(CompleteMultipartUploadRequest.class)))
             .thenReturn(CompleteMultipartUploadResponse.builder().eTag("SOME_ETAG").build());
 
-        final var out = new S3MultiPartOutputStream(BUCKET_NAME, FILE_KEY, 100, mockedS3);
+        final var mpu = new S3Storage.S3MultiPartUpload(mockedS3, BUCKET_NAME, FILE_KEY.value());
+        final var out = new S3MultiPartOutputStream(mpu, 100);
         out.write(1);
         out.close();
 
@@ -188,6 +199,8 @@ class S3MultiPartOutputStreamTest {
         final int bufferSize = 10;
         final byte[] message = new byte[bufferSize];
 
+        when(mockedS3.createMultipartUpload(any(CreateMultipartUploadRequest.class)))
+            .thenReturn(newInitiateMultipartUploadResult());
         when(mockedS3.uploadPart(any(UploadPartRequest.class), any(RequestBody.class)))
             .thenAnswer(invocation -> {
                 final UploadPartRequest up = invocation.getArgument(0);
@@ -197,7 +210,8 @@ class S3MultiPartOutputStreamTest {
             .thenReturn(CompleteMultipartUploadResponse.builder().build());
 
         final List<byte[]> expectedMessagesList = new ArrayList<>();
-        final var out = new S3MultiPartOutputStream(BUCKET_NAME, FILE_KEY, bufferSize, mockedS3);
+        final var mpu = new S3Storage.S3MultiPartUpload(mockedS3, BUCKET_NAME, FILE_KEY.value());
+        final var out = new S3MultiPartOutputStream(mpu, bufferSize);
         for (int i = 0; i < 3; i++) {
             random.nextBytes(message);
             out.write(message, 0, message.length);
@@ -240,6 +254,8 @@ class S3MultiPartOutputStreamTest {
         final List<UploadPartRequest> uploadPartRequests = new ArrayList<>();
         final List<RequestBody> requestBodies = new ArrayList<>();
 
+        when(mockedS3.createMultipartUpload(any(CreateMultipartUploadRequest.class)))
+            .thenReturn(newInitiateMultipartUploadResult());
         when(mockedS3.uploadPart(any(UploadPartRequest.class), any(RequestBody.class)))
             .thenAnswer(invocation -> {
                 final UploadPartRequest upload = invocation.getArgument(0);
@@ -257,7 +273,8 @@ class S3MultiPartOutputStreamTest {
         final byte[] expectedFullMessage = new byte[messageSize + 10];
         final byte[] expectedTailMessage = new byte[10];
 
-        final var out = new S3MultiPartOutputStream(BUCKET_NAME, FILE_KEY, messageSize + 10, mockedS3);
+        final var mpu = new S3Storage.S3MultiPartUpload(mockedS3, BUCKET_NAME, FILE_KEY.value());
+        final var out = new S3MultiPartOutputStream(mpu, messageSize + 10);
         final byte[] message = new byte[messageSize];
         random.nextBytes(message);
         out.write(message);
@@ -288,22 +305,22 @@ class S3MultiPartOutputStreamTest {
 
     @Test
     void sendAbortIfNoWritingHappened() throws IOException {
-        final var out = new S3MultiPartOutputStream(BUCKET_NAME, FILE_KEY, 100, mockedS3);
+        final var mpu = new S3Storage.S3MultiPartUpload(mockedS3, BUCKET_NAME, FILE_KEY.value());
+        final var out = new S3MultiPartOutputStream(mpu, 100);
         out.close();
 
-        verify(mockedS3).abortMultipartUpload(abortMultipartUploadRequestCaptor.capture());
-        assertAbortMultipartUploadRequest(abortMultipartUploadRequestCaptor.getValue());
+        verifyNoInteractions(mockedS3);
         assertThat(out.isClosed()).isTrue();
         assertThatCode(out::close).doesNotThrowAnyException();
     }
 
     @Test
     void failWhenUploadingPartAfterStreamIsClosed() throws IOException {
-        final var out = new S3MultiPartOutputStream(BUCKET_NAME, FILE_KEY, 100, mockedS3);
+        final var mpu = new S3Storage.S3MultiPartUpload(mockedS3, BUCKET_NAME, FILE_KEY.value());
+        final var out = new S3MultiPartOutputStream(mpu, 100);
         out.close();
 
-        verify(mockedS3).abortMultipartUpload(abortMultipartUploadRequestCaptor.capture());
-        assertAbortMultipartUploadRequest(abortMultipartUploadRequestCaptor.getValue());
+        verifyNoInteractions(mockedS3);
         assertThat(out.isClosed()).isTrue();
         assertThatCode(out::close).doesNotThrowAnyException();
 
